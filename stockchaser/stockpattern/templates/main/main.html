@@ -13,7 +13,6 @@
 
     <link rel="canonical" href="https://getbootstrap.com/docs/5.1/examples/dashboard/">
     
-
     
 
 
@@ -51,6 +50,60 @@ rel="stylesheet">
           font-size: 3.5rem;
         }
       }
+
+      
+    </style>
+
+    <style>
+      .autocomplete > div.active {
+  background: #e0e5f6;
+  color: #000;
+}
+
+/* -------------------------- */
+
+.autocomplete > div {
+  background: #a1acac99;
+  padding: .2rem .6rem;
+}
+
+section {
+  width: 500px;
+  padding: 1.5rem 1.6rem;
+  box-shadow: 0 0 1rem rgba(0, 0, 0, 0.05);  
+  border-radius: 5px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background: #fff;
+  margin-top: 2rem;
+}
+
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css");
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  outline: none;
+  word-break: break-all;
+  font-family: Pretendard;
+}
+
+
+input::placeholder {
+  font-size: 1rem;
+}
+
+
+mark {
+  background: #febf0090;
+}
+
+p {
+  opacity: .8;
+  font-size: 15px;
+}
     </style>
 
     
@@ -64,7 +117,11 @@ rel="stylesheet">
   <button class="navbar-toggler position-absolute d-md-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sidebarMenu" aria-controls="sidebarMenu" aria-expanded="false" aria-label="Toggle navigation">
     <span class="navbar-toggler-icon"></span>
   </button>
-  <input class="form-control form-control-dark w-100" type="text" placeholder="종목명을 검색하세요" aria-label="종목명을 검색하세요">
+<!-- 이름 리스트 받아오기 -->
+  <div id="df_name" style="display:none">{{df_name}}</div>
+  <input id="search" autocomplete="off"  class="form-control form-control-dark w-100" type="text" placeholder="종목명을 검색하세요" aria-label="종목명을 검색하세요">
+  <div class="autocomplete" style="font-size: 10px;"></div>
+  
   <div class="navbar-nav">
     <div class="nav-item text-nowrap">
       <a class="nav-link px-3" href="#">검색</a>
@@ -574,5 +631,116 @@ const ctx2 = document.getElementById('myChart17').getContext('2d');
 
 
   </script>
- 
 
+
+ <!-- 검색 알고리즘 -->
+<script>
+// -------------
+/*
+  초성검색 부분
+*/
+const CHO_HANGUL = [
+  'ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ',
+  'ㄹ', 'ㅁ', 'ㅂ','ㅃ', 'ㅅ',
+  'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ',
+  'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ',
+];
+
+const HANGUL_START_CHARCODE = "가".charCodeAt();
+
+const CHO_PERIOD = Math.floor("까".charCodeAt() - "가".charCodeAt());
+const JUNG_PERIOD = Math.floor("개".charCodeAt() - "가".charCodeAt());
+
+function combine(cho, jung, jong) {
+  return String.fromCharCode(
+    HANGUL_START_CHARCODE + cho * CHO_PERIOD + jung * JUNG_PERIOD + jong
+  );
+}
+
+// 초성검색
+function makeRegexByCho(search = "") {
+  const regex = CHO_HANGUL.reduce(
+    (acc, cho, index) =>
+      acc.replace(
+        new RegExp(cho, "g"),
+        `[${combine(index, 0, 0)}-${combine(index + 1, 0, -1)}]`
+      ),
+    search
+  );
+
+  return new RegExp(`(${regex})`, "g");
+}
+
+function includeByCho(search, targetWord) {
+  return makeRegexByCho(search).test(targetWord);
+}
+
+/*
+  자동완성 부분
+*/ 
+
+
+
+const dataList = document.getElementById("df_name").innerText.replace("[","").replace("]","").replace(" ","").replace("\'","").split(",")
+// const dataList = 
+
+
+const $search = document.querySelector("#search");
+const $autoComplete = document.querySelector(".autocomplete");
+
+let nowIndex = 0;
+
+$search.onkeyup = (event) => {
+  // 검색어
+  const value = $search.value.trim();
+
+  // 자동완성 필터링
+  const matchDataList = value
+    ? dataList.filter((label) => includeByCho(value, label))
+    : [];
+
+  switch (event.keyCode) {
+    // UP KEY
+    case 38:
+      nowIndex = Math.max(nowIndex - 1, 0);
+      break;
+
+    // DOWN KEY
+    case 40:
+      nowIndex = Math.min(nowIndex + 1, matchDataList.length - 1);
+      break;
+
+    // ENTER KEY
+    case 13:
+      document.querySelector("#search").value = matchDataList[nowIndex] || "";
+
+      // 초기화
+      nowIndex = 0;
+      matchDataList.length = 0;
+      break;
+      
+    // 그외 다시 초기화
+    default:
+      nowIndex = 0;
+      break;
+  }
+
+  // 리스트 보여주기
+  showList(matchDataList, value, nowIndex);
+};
+
+const showList = (data, value, nowIndex) => {
+  // 초성 정규식으로 변환
+  const regex = makeRegexByCho(value);
+  
+  $autoComplete.innerHTML = data.slice(0, 5)
+    .map(
+      (label, index) => `
+      <div class='${nowIndex === index ? "active" : ""}'>
+        ${label.replace(regex, "<mark>$1</mark>")}
+      </div>
+    `
+    )
+    .join("");
+};
+</script>

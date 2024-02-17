@@ -19,3 +19,7 @@ class StockPriceDateBase(models.Model):
     eps              = models.TextField()   # eps
     div              = models.TextField()   # div
     dps              = models.TextField()   # dps
+
+class StockNameAll(models.Model):
+    name             = models.TextField()   # 종목명
+    ticker           = models.TextField()  # 티커

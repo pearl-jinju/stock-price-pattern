@@ -9,7 +9,7 @@ import pymysql
 import time
 
 
-from .models import StockPriceDateBase#, StockPriceDB
+from .models import StockPriceDateBase, StockNameAll#, StockPriceDB
 
 
 # 필요 모듈
@@ -86,6 +86,8 @@ def get_stock_basic_info(day=0, market="ALL", detail="ALL"):
 
 
 def loaddata(start,end):
+
+
     for i in tqdm(range(start,end)): 
         # 영업일자와 당일의 영업일자가 같은경우 패스
         if i>0 and date_from_now(i) == date_from_now(i-1):
@@ -124,6 +126,29 @@ def loaddata(start,end):
                     )
 
                 StockPriceDateBase.objects.bulk_create(df_bulk,ignore_conflicts=True)
+
+    # 종목명 DB를 갱신함
+    name_df = StockPriceDateBase.objects.all()
+    name_df = pd.DataFrame(name_df.values_list()).iloc[:,2:4]
+    name_df.columns = ["종목명","티커"]
+    # 중복 제거
+    name_df.drop_duplicates(keep="last", inplace=True)
+    print(name_df)
+
+    # 기존 DB 제거
+    StockNameAll.objects.all().delete()
+
+
+    name_df_bulk =[]
+    for i in tqdm(range(len(name_df))):
+        name_df_bulk.append(
+            StockNameAll(
+        name             = name_df['종목명'].iloc[i],   # 종목명
+        ticker           = name_df['티커'].iloc[i],  # 티커
+                                        )
+        )
+    StockNameAll.objects.bulk_create(name_df_bulk,ignore_conflicts=True)
+    print("종목명 갱신완료")
 
 
 # 부족한 일자만큼만 채움
