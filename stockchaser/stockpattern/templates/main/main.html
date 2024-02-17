@@ -118,9 +118,11 @@ p {
     <span class="navbar-toggler-icon"></span>
   </button>
 <!-- 이름 리스트 받아오기 -->
-  <div id="df_name" style="display:none">{{df_name}}</div>
+  <div id="name_ticker_list" style="display:none">{{name_ticker_list}}</div>
   <input id="search" autocomplete="off"  class="form-control form-control-dark w-100" type="text" placeholder="종목명을 검색하세요" aria-label="종목명을 검색하세요">
-  <div class="autocomplete" style="font-size: 10px;"></div>
+  
+
+  <ul class="autocomplete list-group" style="font-size: 10px;"></ul>
   
   <div class="navbar-nav">
     <div class="nav-item text-nowrap">
@@ -681,7 +683,7 @@ function includeByCho(search, targetWord) {
 
 
 
-const dataList = document.getElementById("df_name").innerText.replace("[","").replace("]","").replace(" ","").replace("\'","").split(",")
+const dataList = document.getElementById("name_ticker_list").innerText.replace("[","").replace("]","").replace(" ","").replace("\'","").split(",")
 // const dataList = 
 
 
@@ -736,9 +738,10 @@ const showList = (data, value, nowIndex) => {
   $autoComplete.innerHTML = data.slice(0, 5)
     .map(
       (label, index) => `
-      <div class='${nowIndex === index ? "active" : ""}'>
+
+      <li  class= "list-group-item" + '${nowIndex === index ? "active" : ""}'>
         ${label.replace(regex, "<mark>$1</mark>")}
-      </div>
+      </li>
     `
     )
     .join("");
