@@ -19,7 +19,7 @@ from django.urls import path, include
 from django.conf.urls.static import static
 
 from stockpattern.views import MainPage
-from stockpattern.loader import LoadPrice, LoadRecentPrice, DeletePrice#, DBcheck
+from stockpattern.loader import LoadPrice, DeletePrice, CreatePattern#, DBcheck
 
 urlpatterns = [
     # 홈페이지 url
@@ -27,9 +27,9 @@ urlpatterns = [
 
     # 기능 url
     ### 데이터 로드
-    path('load',LoadPrice.as_view()),    
-    ### 최근 데이터 로드
-    path('recentload',LoadRecentPrice.as_view()),    
+    path('load',LoadPrice.as_view()), 
+    # 패턴 만들기
+    path('createpattern',CreatePattern.as_view()),  
 
     ### 데이터 삭제
     path('delete',DeletePrice.as_view()),

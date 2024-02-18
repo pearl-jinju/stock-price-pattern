@@ -26,11 +26,6 @@ class MainPage(APIView):
         name_ticker_list = [name+" ("+ticker+")" for name, ticker in zip(name_list,ticker_list)]
         name_ticker_list =",".join(name_ticker_list)
         # print(df_name , df_ticker)
-        
-        # df =  pd.DataFrame(StockPriceDateBase.objects.filter(name="더존비즈온").values_list())
-        # print(df)
-        # df = pd.DataFrame(list(df.values()))
-        # df = df.sort_values(by="date",ascending=True)
-        # print(df)
-        # return render(request,"main/main.html",context=dict(datafeed=df)) #context html로 넘길것
+
+
         return render(request,"main/main.html", {'name_ticker_list': name_ticker_list,},status=200) #context html로 넘길것

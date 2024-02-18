@@ -86,9 +86,12 @@ def get_stock_basic_info(day=0, market="ALL", detail="ALL"):
 
 
 def loaddata(start,end):
-
-
+    # 계속데이터가 중복되는경우에 정지하는 카운터를 초기화
+    stop_cnt = 0
     for i in tqdm(range(start,end)): 
+        if stop_cnt > 2:
+            print("데이터 입력을 조기 종료합니다")
+            break
         # 영업일자와 당일의 영업일자가 같은경우 패스
         if i>0 and date_from_now(i) == date_from_now(i-1):
             print("pass")
@@ -98,7 +101,9 @@ def loaddata(start,end):
 
             # 만약 동일 날짜의 데이터가 있다면?
             if StockPriceDateBase.objects.filter(date=df_result['일자'].iloc[0]).count()>0:
+                stop_cnt += 1
                 print("데이터가 이미 있습니다.")
+
                 pass
             else:
                 df_bulk =[]
@@ -151,56 +156,50 @@ def loaddata(start,end):
     print("종목명 갱신완료")
 
 
-# 부족한 일자만큼만 채움
-class FillLoadPrice(APIView):
+# 주가 패턴을 만듬
+class CreatePattern(APIView):
     def get(self, request):
-        # sql에 저장된 db의 유니크 값을 가져옴
+        # 종목명+ 티커 형태의 df를 불러옴
+        df_name_ticker = StockNameAll.objects.all()
+        df_name_ticker = pd.DataFrame(df_name_ticker.values_list()).iloc[:,1:]
+        df_name_ticker.columns = ['종목명','티커']
+        print(df_name_ticker)
 
-        # date_from_now를 이용해 최근 100일의 날짜를 모두 리스트에 저장함
+        # 주가 데이터를 모두 가져옴
+        StockPriceDB_df = StockPriceDateBase.objects.all()
+        StockPriceDB_df = pd.DataFrame(StockPriceDB_df.values_list()).iloc[:,1:]
+        StockPriceDB_df.columns = ['날짜','종목명','티커','시가','고가','저가','종가','등락률','거래량','거래대금','PER','BPS','PBR','EPS','DIV','DPS']
 
-        #  두집합에서 부족한 일수만큼만 반복하여 데이터를 집어넣음
+        # 주가의 3개월 패턴을 분해한다. [날짜, 종목명, 종가, 등락률]
 
-        return Response(status=200)
+        # 날짜순 정렬
+        StockPriceDB_df_stocks = StockPriceDB_df[StockPriceDB_df['종목명']=="더존비즈온"]
+        StockPriceDB_df_stocks = StockPriceDB_df_stocks.sort_values(by="날짜", ascending=True)
+        # 종가데이터만을 받음
+        StockPriceDB_df_stocks = StockPriceDB_df_stocks[['날짜', '종목명', '종가', '등락률']]
 
-class LoadRecentPrice(APIView):
-    def get(self, request):
-        # 로더는 시간이 너무 오래걸리므로 -1영업일의 데이터만을 db에 저장해야함
-        # DB에 저장후에는 없는 날짜만 채워서 데이터를 보충하는 일이 필요함
-        # 최근일자의 주가 정보는 확정되지 않은 값이므로 전날일자만 저장
-        df = StockPriceDateBase.objects.all()
-        df = pd.DataFrame(df.values_list())
-        df = df.loc[:,1:1] #.sort_values(by="1",ascending=False)
-        df.columns = ['일자']
-        # 50일 전의 일자까지 겹치는지 조회
-        df_list = pd.DataFrame(df['일자']).sort_values(by="일자", ascending=False)['일자'].unique()[1:50]
+        # 224일 평균선을 만듬
+        StockPriceDB_df_stocks['MA224'] = StockPriceDB_df_stocks['종가'].rolling(window=5).mean()
 
-        # 현재 일자로 부터 1일전 영업일부터 영업일 일자 뽑기
-        real_date_list = []
-        for i in range(1,50):
-            date = str(date_from_now(i))
-            yyyy = date[0:4]
-            mm = date[4:6]
-            dd = date[6:8]
-            final_date = yyyy+"-"+mm+"-"+dd
-            if final_date not in real_date_list:
-                real_date_list.append(final_date)
+        # 날짜기준으로 각각 pivoting
+        StockPriceDB_df_stocks_price = StockPriceDB_df_stocks.pivot(index="종목명",columns="날짜",values="종가")
 
-        recent_date_list = []
-        for real, idx in zip(real_date_list,range(1,len(real_date_list)+1)):
-            if real not in df_list:
-                recent_date_list.append(idx)
 
-        for i in recent_date_list:
-            loaddata(i,i+1)
+        print(StockPriceDB_df_stocks)
+        print(StockPriceDB_df_stocks_price)
+
+
+        # 
+        # 종목명 별로 날짜기준 정렬함
+        # 
+
         return Response(status=200)
 
 class LoadPrice(APIView):
     def get(self, request):
         #반복하여 데이터에 집어넣음
-        # TODO 데이터 순서 검증을 거꾸로 하여 데이터 누락분 확인 필요
-        # loaddata(708,10000)
-        # loaddata(2319,10000)
-        loaddata(1,5)
+        # 당일의 주가동향은 바뀌므로 저장하지 않고, 전일 데이터까지만 저장함
+        loaddata(1,100)
         return Response(status=200)
 
 

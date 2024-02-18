@@ -193,9 +193,9 @@ p {
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="recentload">
+            <a class="nav-link" href="createpattern">
               <span data-feather="file-text"></span>
-              최근 데이터 로드
+              데이터 패턴 만들기
             </a>
           </li>
           <li class="nav-item">
@@ -738,11 +738,26 @@ const showList = (data, value, nowIndex) => {
     .map(
       (label, index) => `
 
-      <li  class= "list-group-item" + '${nowIndex === index ? "active" : ""}'>
+      <li id="list-item-${index}" class= "list-group-item" + '${nowIndex === index ? "active" : ""}'>
         ${label.replace(regex, "<mark>$1</mark>")}
+        <div id="list-item-${index}_sub" style="display:none;"> ${label.split(" ")[0]} <div>
       </li>
     `
+
     )
     .join("");
+
 };
 </script>
+
+
+<script>
+
+  $(document).ready(function(){
+  $("#list-item-0").click(function(){
+    alert("asdasd");
+  });
+});
+
+</script>
+<!-- 검색어 클릭시 검색창에 텍스트 입력하기 가져오기 -->
