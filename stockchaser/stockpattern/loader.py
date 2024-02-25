@@ -138,7 +138,6 @@ def loaddata(start,end):
     name_df.columns = ["종목명","티커"]
     # 중복 제거
     name_df.drop_duplicates(keep="last", inplace=True)
-    print(name_df)
 
     # 기존 DB 제거
     StockNameAll.objects.all().delete()
@@ -159,39 +158,83 @@ def loaddata(start,end):
 # 주가 패턴을 만듬
 class CreatePattern(APIView):
     def get(self, request):
+
+        # 상장한지 1년이 안된 신규상장주는 분석기능 미제공 
+
+
         # 종목명+ 티커 형태의 df를 불러옴
         df_name_ticker = StockNameAll.objects.all()
         df_name_ticker = pd.DataFrame(df_name_ticker.values_list()).iloc[:,1:]
         df_name_ticker.columns = ['종목명','티커']
-        print(df_name_ticker)
+
 
         # 주가 데이터를 모두 가져옴
         StockPriceDB_df = StockPriceDateBase.objects.all()
         StockPriceDB_df = pd.DataFrame(StockPriceDB_df.values_list()).iloc[:,1:]
         StockPriceDB_df.columns = ['날짜','종목명','티커','시가','고가','저가','종가','등락률','거래량','거래대금','PER','BPS','PBR','EPS','DIV','DPS']
 
-        # 주가의 3개월 패턴을 분해한다. [날짜, 종목명, 종가, 등락률]
+        # 주가의 6개월 패턴을 분해한다. [날짜, 종목명, 종가, 등락률]
 
         # 날짜순 정렬
         StockPriceDB_df_stocks = StockPriceDB_df[StockPriceDB_df['종목명']=="더존비즈온"]
         StockPriceDB_df_stocks = StockPriceDB_df_stocks.sort_values(by="날짜", ascending=True)
+        # print(StockPriceDB_df_stocks)
+                
         # 종가데이터만을 받음
         StockPriceDB_df_stocks = StockPriceDB_df_stocks[['날짜', '종목명', '종가', '등락률']]
-
-        # 224일 평균선을 만듬
-        StockPriceDB_df_stocks['MA224'] = StockPriceDB_df_stocks['종가'].rolling(window=5).mean()
+        # 224일 평균선
+        StockPriceDB_df_stocks['MA224'] = StockPriceDB_df_stocks['종가'].rolling(window=224).mean()
+        # 주가 / 224일 평균
+        StockPriceDB_df_stocks['MA224_rate'] = StockPriceDB_df_stocks['종가']/StockPriceDB_df_stocks['MA224']
 
         # 날짜기준으로 각각 pivoting
+        # 주가기준
         StockPriceDB_df_stocks_price = StockPriceDB_df_stocks.pivot(index="종목명",columns="날짜",values="종가")
+        # # 등락률 기준
+        StockPriceDB_df_stocks_rate = StockPriceDB_df_stocks.pivot(index="종목명",columns="날짜",values="등락률")
+        # # # MA224 기준
+        # StockPriceDB_df_stocks_MA224 = StockPriceDB_df_stocks.pivot(index="종목명",columns="날짜",values="MA224")
+        # # 주가/MA224 기준
+        StockPriceDB_df_stocks_MA224_rate = StockPriceDB_df_stocks.pivot(index="종목명",columns="날짜",values="MA224_rate")
+
+        # DateFrame 초기화
+        pivotted_StockPriceDB_df_stocks_data_result = pd.DataFrame()
+
+        for idx in tqdm(range(len(StockPriceDB_df_stocks)-120)):
+            # ------------------기초데이터 추출
+            stock_name = StockPriceDB_df_stocks_price.iloc[:,idx:idx+121].index[0]
+            # 컬럼 첫번째 날짜 
+            start_day = StockPriceDB_df_stocks_price.iloc[:,idx:idx+121].columns[1]
+            # 컬럼 마지막 날짜
+            last_day = StockPriceDB_df_stocks_price.iloc[:,idx:idx+121].columns[-1]
+            # 구분자로 --를 사용
+            name_date = stock_name +"--"+start_day+"--"+last_day
+
+            # ------------------ 데이터 제작
+            temp_data_df = pd.DataFrame()
+
+            # 주가 결과 데이터
+            temp_df_price = StockPriceDB_df_stocks_price.iloc[:,idx:idx+121].copy().values.tolist()
+            # 등락률 결과 데이터
+            temp_df_rate = StockPriceDB_df_stocks_rate.iloc[:,idx:idx+121].copy().values.tolist()
+            # 주가/MA224  결과 데이터
+            temp_df_MA224_rate = StockPriceDB_df_stocks_MA224_rate.iloc[:,idx:idx+121].copy().values.tolist()
 
 
-        print(StockPriceDB_df_stocks)
-        print(StockPriceDB_df_stocks_price)
+            temp_data_df['종목명'] = stock_name
+            temp_data_df['시작일자'] = start_day
+            temp_data_df['종료일자'] = last_day
+            temp_data_df['주가_list'] = temp_df_price
+            temp_data_df['등락률_list'] = temp_df_rate
+            temp_data_df['주가/MA224_list'] = temp_df_MA224_rate
+
+        #     # ------------------데이터프레임에 추가
+            pivotted_StockPriceDB_df_stocks_data_result = pd.concat([pivotted_StockPriceDB_df_stocks_data_result,temp_data_df],axis=0)
 
 
-        # 
         # 종목명 별로 날짜기준 정렬함
-        # 
+        print(pivotted_StockPriceDB_df_stocks_data_result)
+        # # ------------------- DB에 저장(중복검사) 
 
         return Response(status=200)
 
