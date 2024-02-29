@@ -9,7 +9,7 @@ import pymysql
 import time
 
 
-from .models import StockPriceDateBase, StockNameAll#, StockPriceDB
+from .models import StockPriceDateBase, StockNameAll, StockPricePattern
 
 
 # 필요 모듈
@@ -249,6 +249,7 @@ class CreatePattern(APIView):
             nan_value_check_rate =  sum(temp_df_MA224_rate.isnull().sum(axis=0))
             nan_value_check_mean =  sum(temp_df_MA224_mean.isnull().sum(axis=0))
             nan_value_check_std =  sum(temp_df_MA224_std.isnull().sum(axis=0))
+            
 
             if nan_value_check_ma224 > 0:
                 # 있다면 다음 루프로
@@ -298,6 +299,29 @@ class CreatePattern(APIView):
         # 종목명 별로 날짜기준 정렬함
         print(pivotted_StockPriceDB_df_stocks_data_result)
         # # ------------------- DB에 저장(중복검사) 
+
+
+            
+        # df_bulk =[]
+        # for i in tqdm(range(len(pivotted_StockPriceDB_df_stocks_data_result))):
+        #     df_bulk.append(
+        #         StockPricePattern(
+        #     name             = pivotted_StockPriceDB_df_stocks_data_result['종목명'].iloc[i],  # 티커
+        #     analysis_period  = pivotted_StockPriceDB_df_stocks_data_result['분석기간'].iloc[i],  # 티커
+        #     start_day        = pivotted_StockPriceDB_df_stocks_data_result['시작일자'].iloc[i],  # 티커
+        #     end_day          = pivotted_StockPriceDB_df_stocks_data_result['종료일자'].iloc[i],  # 티커
+        #     price_list       = pivotted_StockPriceDB_df_stocks_data_result['주가_list'].iloc[i],  # 티커
+        #     fluctuation_list = pivotted_StockPriceDB_df_stocks_data_result['등락률_list'].iloc[i],  # 티커
+        #     MA224_list       = pivotted_StockPriceDB_df_stocks_data_result['MA224_list'].iloc[i],  # 티커
+        #     MA224_rate_list  = pivotted_StockPriceDB_df_stocks_data_result['주가/MA224_list'].iloc[i],  # 티커
+        #     MA224_mean_list  = pivotted_StockPriceDB_df_stocks_data_result['MA224_mean_list'].iloc[i],  # 티커
+        #     MA224_std_list   = pivotted_StockPriceDB_df_stocks_data_result['MA224_std_list'].iloc[i],  # 티커
+        #                                     )
+        #     )
+        # StockPricePattern.objects.bulk_create(df_bulk,ignore_conflicts=True)
+        # print("종목명 갱신완료")
+
+
 
         # 4. db저장을 위한 df를 역순으로 정렬하여 db에 있는지 먼저 확인하는 중복검사 기능 추가 
         # cnt로 조기조건 조건 추가

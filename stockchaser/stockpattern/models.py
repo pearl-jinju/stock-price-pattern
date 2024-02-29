@@ -23,3 +23,16 @@ class StockPriceDateBase(models.Model):
 class StockNameAll(models.Model):
     name             = models.TextField()   # 종목명
     ticker           = models.TextField()  # 티커
+
+
+class StockPricePattern(models.Model):
+    name             = models.TextField()   # 종목명
+    analysis_period  = models.IntegerField()  # 티커
+    start_day        = models.TextField()   # 시작 날짜 
+    end_day          = models.TextField()   # 종료 날짜 
+    price_list       = models.TextField()   # 주가 정보 리스트 
+    fluctuation_list = models.TextField()   # 등락률 정보 리스트  
+    MA224_list       = models.TextField()   # 224일 평균 정보 리스트 
+    MA224_rate_list  = models.TextField()   # 주가/224일 평균 정보 리스트
+    MA224_mean_list  = models.TextField()   # 224일 등락률 평균 정보 리스트 
+    MA224_std_list   = models.TextField()   # 224일 등락률 표준편차 정보 리스트
