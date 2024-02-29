@@ -132,16 +132,16 @@ def loaddata(start,end):
 
                 StockPriceDateBase.objects.bulk_create(df_bulk,ignore_conflicts=True)
 
+    # 기존 DB 제거
+    StockNameAll.objects.all().delete()
+
     # 종목명 DB를 갱신함
     name_df = StockPriceDateBase.objects.all()
     name_df = pd.DataFrame(name_df.values_list()).iloc[:,2:4]
     name_df.columns = ["종목명","티커"]
     # 중복 제거
-    name_df.drop_duplicates(keep="last", inplace=True)
-
-    # 기존 DB 제거
-    StockNameAll.objects.all().delete()
-
+    name_df.drop_duplicates(keep="last", inplace=True, subset="종목명")
+    print(name_df)
 
     name_df_bulk =[]
     for i in tqdm(range(len(name_df))):
@@ -158,9 +158,8 @@ def loaddata(start,end):
 # 주가 패턴을 만듬
 class CreatePattern(APIView):
     def get(self, request):
-
+        # STEP 0 ===========================================
         # 상장한지 1년이 안된 신규상장주는 분석기능 미제공 
-
 
         # 종목명+ 티커 형태의 df를 불러옴
         df_name_ticker = StockNameAll.objects.all()
@@ -173,68 +172,136 @@ class CreatePattern(APIView):
         StockPriceDB_df = pd.DataFrame(StockPriceDB_df.values_list()).iloc[:,1:]
         StockPriceDB_df.columns = ['날짜','종목명','티커','시가','고가','저가','종가','등락률','거래량','거래대금','PER','BPS','PBR','EPS','DIV','DPS']
 
-        # 주가의 6개월 패턴을 분해한다. [날짜, 종목명, 종가, 등락률]
+        # 주가의 1년 패턴을 분해한다. [날짜, 종목명, 종가, 등락률]
+        
+        # 분석기간 설정
+        analysis_period = 224
 
+        # STEP 1 ===========================================
         # 날짜순 정렬
         StockPriceDB_df_stocks = StockPriceDB_df[StockPriceDB_df['종목명']=="더존비즈온"]
         StockPriceDB_df_stocks = StockPriceDB_df_stocks.sort_values(by="날짜", ascending=True)
-        # print(StockPriceDB_df_stocks)
+
                 
         # 종가데이터만을 받음
         StockPriceDB_df_stocks = StockPriceDB_df_stocks[['날짜', '종목명', '종가', '등락률']]
         # 224일 평균선
-        StockPriceDB_df_stocks['MA224'] = StockPriceDB_df_stocks['종가'].rolling(window=224).mean()
+        StockPriceDB_df_stocks['MA224'] = StockPriceDB_df_stocks['종가'].rolling(window=analysis_period).mean()
         # 주가 / 224일 평균
         StockPriceDB_df_stocks['MA224_rate'] = StockPriceDB_df_stocks['종가']/StockPriceDB_df_stocks['MA224']
+        # 224일 표준편차(평균수익률)
+        StockPriceDB_df_stocks['MA224_mean'] = StockPriceDB_df_stocks['등락률'].rolling(window=analysis_period).mean()
+        # 224일 표준편차(위험)
+        StockPriceDB_df_stocks['MA224_std'] = StockPriceDB_df_stocks['등락률'].rolling(window=analysis_period).std()
+        # 5일후 수익률
+        StockPriceDB_df_stocks['yeild_5days'] = StockPriceDB_df_stocks['종가'].shift(periods=-5)/StockPriceDB_df_stocks['종가']-1
+        # 20일후 수익률
+        StockPriceDB_df_stocks['yeild_20days'] = StockPriceDB_df_stocks['종가'].shift(periods=-20)/StockPriceDB_df_stocks['종가']-1
+        # 60일후 수익률
+        StockPriceDB_df_stocks['yeild_60days'] = StockPriceDB_df_stocks['종가'].shift(periods=-60)/StockPriceDB_df_stocks['종가']-1
 
-        # 날짜기준으로 각각 pivoting
+        print(StockPriceDB_df_stocks['yeild_60days'])
+
+        
+        ## STEP 2 날짜기준으로 각각 pivoting =============================================
+
         # 주가기준
         StockPriceDB_df_stocks_price = StockPriceDB_df_stocks.pivot(index="종목명",columns="날짜",values="종가")
-        # # 등락률 기준
+        # 등락률 기준
         StockPriceDB_df_stocks_rate = StockPriceDB_df_stocks.pivot(index="종목명",columns="날짜",values="등락률")
-        # # # MA224 기준
-        # StockPriceDB_df_stocks_MA224 = StockPriceDB_df_stocks.pivot(index="종목명",columns="날짜",values="MA224")
-        # # 주가/MA224 기준
+        # MA224 기준
+        StockPriceDB_df_stocks_MA224 = StockPriceDB_df_stocks.pivot(index="종목명",columns="날짜",values="MA224")
+        # 주가/MA224 기준
         StockPriceDB_df_stocks_MA224_rate = StockPriceDB_df_stocks.pivot(index="종목명",columns="날짜",values="MA224_rate")
+        # 224일 평균수익률 기준
+        StockPriceDB_df_stocks_MA224_mean = StockPriceDB_df_stocks.pivot(index="종목명",columns="날짜",values="MA224_std")
+        # 224일 평균위험 기준
+        StockPriceDB_df_stocks_MA224_std = StockPriceDB_df_stocks.pivot(index="종목명",columns="날짜",values="MA224_mean")
 
-        # DateFrame 초기화
+
+
+        # pivot DateFrame 초기화
         pivotted_StockPriceDB_df_stocks_data_result = pd.DataFrame()
 
-        for idx in tqdm(range(len(StockPriceDB_df_stocks)-120)):
+        #  패턴 기간 설정  ================================================================================
+        pattern_period = 244
+        #  ==========================================================================================
+
+        for idx in tqdm(range(len(StockPriceDB_df_stocks)-pattern_period)):
             # ------------------기초데이터 추출
-            stock_name = StockPriceDB_df_stocks_price.iloc[:,idx:idx+121].index[0]
+            stock_name = StockPriceDB_df_stocks_price.iloc[:,idx:idx+pattern_period].index[0]
             # 컬럼 첫번째 날짜 
-            start_day = StockPriceDB_df_stocks_price.iloc[:,idx:idx+121].columns[1]
+            start_day = StockPriceDB_df_stocks_price.iloc[:,idx:idx+pattern_period].columns[1]
             # 컬럼 마지막 날짜
-            last_day = StockPriceDB_df_stocks_price.iloc[:,idx:idx+121].columns[-1]
-            # 구분자로 --를 사용
-            name_date = stock_name +"--"+start_day+"--"+last_day
+            last_day = StockPriceDB_df_stocks_price.iloc[:,idx:idx+pattern_period].columns[-1]
 
             # ------------------ 데이터 제작
+            # 주가/MA224  결과 데이터
+
+            # 값이 NAN인경우에는 건너뛴다.
+            temp_df_MA224      = StockPriceDB_df_stocks_MA224.iloc[:,idx:idx+pattern_period].copy()
+            temp_df_MA224_rate = StockPriceDB_df_stocks_MA224_rate.iloc[:,idx:idx+pattern_period].copy()
+            temp_df_MA224_mean = StockPriceDB_df_stocks_MA224_mean.iloc[:,idx:idx+pattern_period].copy()
+            temp_df_MA224_std  = StockPriceDB_df_stocks_MA224_std.iloc[:,idx:idx+pattern_period].copy()
+            
+            # 결측값이 있는지 확인한다.
+            nan_value_check_ma224 = sum(temp_df_MA224.isnull().sum(axis=0))
+            nan_value_check_rate =  sum(temp_df_MA224_rate.isnull().sum(axis=0))
+            nan_value_check_mean =  sum(temp_df_MA224_mean.isnull().sum(axis=0))
+            nan_value_check_std =  sum(temp_df_MA224_std.isnull().sum(axis=0))
+
+            if nan_value_check_ma224 > 0:
+                # 있다면 다음 루프로
+                continue
+
+            if nan_value_check_rate > 0:
+                # 있다면 다음 루프로
+                continue
+            
+            if nan_value_check_mean > 0:
+                # 있다면 다음 루프로
+                continue
+            
+            if nan_value_check_std > 0:
+                # 있다면 다음 루프로
+                continue
+
+            # Dataframe을 List로 변경
+            temp_df_MA224       = temp_df_MA224.values.tolist()
+            temp_df_MA224_rate  = temp_df_MA224_rate.values.tolist()
+            temp_df_MA224_mean  = temp_df_MA224_mean.values.tolist()
+            temp_df_MA224_std   = temp_df_MA224_std.values.tolist()
+
+            # df 초기화  
             temp_data_df = pd.DataFrame()
 
             # 주가 결과 데이터
-            temp_df_price = StockPriceDB_df_stocks_price.iloc[:,idx:idx+121].copy().values.tolist()
+            temp_df_price = StockPriceDB_df_stocks_price.iloc[:,idx:idx+pattern_period].copy().values.tolist()
             # 등락률 결과 데이터
-            temp_df_rate = StockPriceDB_df_stocks_rate.iloc[:,idx:idx+121].copy().values.tolist()
-            # 주가/MA224  결과 데이터
-            temp_df_MA224_rate = StockPriceDB_df_stocks_MA224_rate.iloc[:,idx:idx+121].copy().values.tolist()
+            temp_df_rate = StockPriceDB_df_stocks_rate.iloc[:,idx:idx+pattern_period].copy().values.tolist()
 
-
-            temp_data_df['종목명'] = stock_name
-            temp_data_df['시작일자'] = start_day
-            temp_data_df['종료일자'] = last_day
+        
+            temp_data_df.loc[0,'종목명'] = stock_name
+            temp_data_df.loc[0,'분석기간'] = pattern_period
+            temp_data_df.loc[0,'시작일자'] = start_day
+            temp_data_df.loc[0,'종료일자'] = last_day
             temp_data_df['주가_list'] = temp_df_price
             temp_data_df['등락률_list'] = temp_df_rate
+            temp_data_df['MA224_list'] = temp_df_MA224
             temp_data_df['주가/MA224_list'] = temp_df_MA224_rate
+            temp_data_df['MA224_mean_list'] = temp_df_MA224_mean
+            temp_data_df['MA224_std_list'] = temp_df_MA224_std
 
         #     # ------------------데이터프레임에 추가
             pivotted_StockPriceDB_df_stocks_data_result = pd.concat([pivotted_StockPriceDB_df_stocks_data_result,temp_data_df],axis=0)
 
-
         # 종목명 별로 날짜기준 정렬함
         print(pivotted_StockPriceDB_df_stocks_data_result)
         # # ------------------- DB에 저장(중복검사) 
+
+        # 4. db저장을 위한 df를 역순으로 정렬하여 db에 있는지 먼저 확인하는 중복검사 기능 추가 
+        # cnt로 조기조건 조건 추가
+
 
         return Response(status=200)
 
