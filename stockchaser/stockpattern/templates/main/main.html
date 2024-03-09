@@ -119,6 +119,10 @@ p {
   </button>
 <!-- 이름 리스트 받아오기 -->
     <div id="name_ticker_list" style="display:none">{{name_ticker_list}}</div>
+<!-- 가격 리스트 받아오기 -->
+    <div id="price_list" style="display:none">{{price_list}}</div>
+<!-- 날짜 리스트 받아오기 -->
+<div id="date_list" style="display:none">{{date_list}}</div>
     <div class="flex-container w-100">
       <input id="search" autocomplete="off"  class="form-control form-control-dark w-100" type="text" placeholder="종목명을 검색하세요" aria-label="종목명을 검색하세요">
       <ul class="autocomplete list-group" style="font-size: 15px;"></ul>
@@ -174,8 +178,8 @@ p {
         </ul>
 
         <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
-          <span>Saved reports</span>
-          <a class="link-secondary" href="#" aria-label="Add a new report">
+          <span>기능</span>
+          <a class="link-secondary" href="" aria-label="Add a new report">
             <span data-feather="plus-circle"></span>
           </a>
         </h6>
@@ -187,15 +191,21 @@ p {
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="load">
+            <a class="nav-link" href="loaddata">
               <span data-feather="file-text"></span>
-              데이터 로드
+              Step 1. 주가데이터 불러오기
             </a>
           </li>
           <li class="nav-item">
             <a class="nav-link" href="createpattern">
               <span data-feather="file-text"></span>
-              데이터 패턴 만들기
+              Step 2. 데이터 패턴 만들기
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="cosim">
+              <span data-feather="file-text"></span>
+              Step 3. 유사패턴 구하기
             </a>
           </li>
           <li class="nav-item">
@@ -225,7 +235,7 @@ p {
       </div>
 
       <canvas class="my-3 w-100" id="myChart1" width="450" height="100"></canvas>
-<h1 class="h2">유사 패턴 종목</h1>
+<h1 class="h2">종목 진단</h1>
     <div  class="w-100 d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
       <div  class="w-50 d-flex align-content-center flex-wrap">
         <canvas class="w-70 h-25" id="myChart2" ></canvas>
@@ -396,27 +406,27 @@ p {
 
 <script>
 // 차트 1
+const color_map = []
+const pricedataList = document.getElementById("price_list").innerText.replace("[","").replace("]","").replace(" ","").replace("\'","").replace('\"',"").split(",")
+const datedataList = document.getElementById("date_list").innerText.replace("[","").replace("]","").replace(" ","").replace("\'","").replace('\"',"").split(",")
 const ctx1 = document.getElementById('myChart1').getContext('2d');
   const myChart1 = new Chart(ctx1, {
       type: 'line',
       data: {
-          labels: ['Red', 'Blue', 'Yellow', 'Green', 'Purple', 'Orange'],
+          labels: datedataList,
           datasets: [{
-              label: "종목명 주가동향",
-              data: [50,-7,5,2,-3.5,7,12,5],
+              label: "조회한 종목명",
+              data: pricedataList,
               backgroundColor: [
                   'rgba(255, 99, 132, 0.2)',
-                  'rgba(54, 162, 235, 0.2)',
-                  'rgba(255, 206, 86, 0.2)',
-                  'rgba(75, 192, 192, 0.2)',
-                  'rgba(153, 102, 255, 0.2)',
-                  'rgba(255, 159, 64, 0.2)'
+
               ],
               borderColor: [
-                  'rgba(255, 99, 132, 1)',
+                  'rgba(255, 0, 0, 1)',
+
                   
               ],
-              borderWidth: 1
+              borderWidth: 0
           }]
       },
       options: {
@@ -683,7 +693,7 @@ function includeByCho(search, targetWord) {
 
 
 const dataList = document.getElementById("name_ticker_list").innerText.replace("[","").replace("]","").replace(" ","").replace("\'","").split(",")
-// const dataList = 
+
 
 
 const $search = document.querySelector("#search");
@@ -693,71 +703,72 @@ let nowIndex = 0;
 
 $search.onkeyup = (event) => {
   // 검색어
-  const value = $search.value.trim();
+   const value = $search.value.trim();
 
-  // 자동완성 필터링
-  const matchDataList = value
-    ? dataList.filter((label) => includeByCho(value, label))
-    : [];
+   // 자동완성 필터링
+   const matchDataList = value
+     ? dataList.filter((label) => includeByCho(value, label))
+     : [];
 
-  switch (event.keyCode) {
-    // UP KEY
-    case 38:
-      nowIndex = Math.max(nowIndex - 1, 0);
-      break;
+   switch (event.keyCode) {
+     // UP KEY
+     case 38:
+       nowIndex = Math.max(nowIndex - 1, 0);
+       break;
 
-    // DOWN KEY
-    case 40:
-      nowIndex = Math.min(nowIndex + 1, matchDataList.length - 1);
-      break;
+     // DOWN KEY
+     case 40:
+       nowIndex = Math.min(nowIndex + 1, matchDataList.length - 1);
+       break;
 
-    // ENTER KEY
-    case 13:
-      document.querySelector("#search").value = matchDataList[nowIndex] || "";
+     // ENTER KEY
+     case 13:
+       document.querySelector("#search").value = matchDataList[nowIndex] || "";
 
-      // 초기화
-      nowIndex = 0;
-      matchDataList.length = 0;
-      break;
+       // 초기화
+       nowIndex = 0;
+       matchDataList.length = 0;
+       break;
       
-    // 그외 다시 초기화
-    default:
-      nowIndex = 0;
-      break;
-  }
+     // 그외 다시 초기화
+     default:
+       nowIndex = 0;
+       break;
+   }
 
-  // 리스트 보여주기
-  showList(matchDataList, value, nowIndex);
-};
+   // 리스트 보여주기
+   showList(matchDataList, value, nowIndex);
+ };
 
-const showList = (data, value, nowIndex) => {
-  // 초성 정규식으로 변환
-  const regex = makeRegexByCho(value);
+ const showList = (data, value, nowIndex) => {
+   // 초성 정규식으로 변환
+   const regex = makeRegexByCho(value);
   
-  $autoComplete.innerHTML = data.slice(0, 5)
-    .map(
-      (label, index) => `
+   $autoComplete.innerHTML = data.slice(0, 5)
+     .map(
+       (label, index) => `
 
-      <li id="list-item-${index}" class= "list-group-item" + '${nowIndex === index ? "active" : ""}'>
-        ${label.replace(regex, "<mark>$1</mark>")}
-        <div id="list-item-${index}_sub" style="display:none;"> ${label.split(" ")[0]} <div>
-      </li>
-    `
+       <li id="list-item-${index}" onclick="search(${index})" class= "list-group-item" + '${nowIndex === index ? "active" : ""}'>
+         ${label.replace(regex, "<mark>$1</mark>")}
+         <div id="list-item-${index}_sub" style="display:none;"> ${label.split(" ")[0]} <div>
+       </li>
+     `
 
-    )
-    .join("");
+     )
+     .join("");
 
-};
-</script>
+ };
+ </script>
 
 
-<script>
-
-  $(document).ready(function(){
-  $("#list-item-0").click(function(){
-    alert("asdasd");
-  });
-});
-
-</script>
 <!-- 검색어 클릭시 검색창에 텍스트 입력하기 가져오기 -->
+ <script>
+
+function search(index) {
+  const name = document.getElementById("list-item-"+index).innerText.split(" ")[0]
+  $('#search').val(name)
+}
+
+ </script> 
+
+ <!-- 검색 클릭시 해당 쿼리로 종목 진단 조회 -->

@@ -19,20 +19,20 @@ from django.urls import path, include
 from django.conf.urls.static import static
 
 from stockpattern.views import MainPage
-from stockpattern.loader import LoadPrice, DeletePrice, CreatePattern#, DBcheck
+from stockpattern.loader import CreatePattern,LoadRecentData, CreateCosim
 
 urlpatterns = [
     # 홈페이지 url
     path('', MainPage.as_view()),
 
     # 기능 url
-    ### 데이터 로드
-    path('load',LoadPrice.as_view()), 
-    # 패턴 만들기
-    path('createpattern',CreatePattern.as_view()),  
 
-    ### 데이터 삭제
-    path('delete',DeletePrice.as_view()),
+    ### 데이터 로드
+    path('loaddata/', LoadRecentData.as_view()),
+    # 패턴 만들기
+    path('createpattern',CreatePattern.as_view()), 
+
+    path('cosim',CreateCosim.as_view()),  
 
     # admin 관리
     path('admin/', admin.site.urls),
